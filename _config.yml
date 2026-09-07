@@ -1,0 +1,9 @@
+theme: jekyll-theme-cayman
+
+# Navigation (Optional)
+title: "Polygenic Risk Score"
+description: "Fundamentals of PRS"
+
+# Enable navigation links
+include:
+    - chapters/
