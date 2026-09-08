@@ -24,25 +24,6 @@ weights.
 > associations. A PRS method transforms those estimates into a
 > prediction model, which must then be tested in independent people.
 
-# Learning objectives
-
-By the end of this chapter, you should be able to:
-
-1.  explain the purpose of a GWAS in simple language;
-2.  distinguish case-control and quantitative-trait GWAS;
-3.  interpret beta, odds ratio, standard error, confidence interval and
-    P value;
-4.  explain why the effect allele must always be known;
-5.  identify essential GWAS summary-statistics columns;
-6.  explain why odds ratios should not be used directly as additive PRS
-    weights;
-7.  distinguish marginal GWAS effects from final PRS weights;
-8.  explain how linkage disequilibrium affects weight construction;
-9.  describe how sample size, phenotype quality and ancestry affect PRS
-    performance;
-10. distinguish discovery, tuning and validation datasets; and
-11. assess whether a GWAS is suitable for a proposed PRS analysis.
-
 # 1. What question does a GWAS ask?
 
 A GWAS examines variants across the genome and asks, one variant at a
