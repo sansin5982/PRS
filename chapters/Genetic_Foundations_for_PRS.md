@@ -10,7 +10,11 @@ correctly, we must know exactly what is being counted.
 This chapter explains the minimum genetics needed for PRS analysis. It
 does not attempt to teach all of molecular biology. The aim is to help a
 beginner understand genotype files, scoring files and later
-quality-control steps.
+quality-control steps. The worked examples assume biallelic variants
+(two possible alleles) on diploid autosomes (two chromosome copies). Sex
+chromosomes, copy-number changes and sites with more than two alleles
+require additional handling. All sample genotypes and weights in the
+exercises are fictional.
 
 > **Central idea:** A PRS does not simply count “bad genes.” It counts
 > copies—or estimated copies—of specifically defined effect alleles and
@@ -112,16 +116,15 @@ Most standard PRS analyses focus primarily on single-base variants.
 A **single-nucleotide variant**, or SNV, is a difference at one DNA
 base.
 
-For example:
+For example, compare one chromosome sequence from each of two people:
 
-``` text
-Person 1: ... A C T A G ...
-Person 2: ... A C T G G ...
-                    ^
-```
+| Base position in this short sequence | 1   | 2   | 3   | 4     | 5   |
+|--------------------------------------|-----|-----|-----|-------|-----|
+| Sequence from person 1               | A   | C   | T   | **A** | G   |
+| Sequence from person 2               | A   | C   | T   | **G** | G   |
 
-At the highlighted position, one sequence contains A and the other
-contains G.
+At position 4, one sequence contains A and the other contains G. This
+shows one sequence per person, not their full two-copy genotype.
 
 The term **single-nucleotide polymorphism**, or **SNP**, is commonly
 used for a single-base variant observed in a population. “SNP” is
@@ -142,8 +145,10 @@ A variant can be identified using:
 For example:
 
 ``` text
+Illustrative coordinate only; not an identified biological variant
 Chromosome: 6
 Position:   32,626,565
+Build:      GRCh38
 Alleles:    A and G
 ```
 
@@ -193,8 +198,16 @@ G/G
 ```
 
 The slash separates the two inherited copies. In most unphased genotype
-data, A/G and G/A mean the same observed genotype because we do not know
-which parent contributed which allele.
+data, A/G and G/A mean the same observed genotype because the data do
+not assign alleles to particular chromosome copies. **Phasing**
+estimates which alleles at different positions lie together on the same
+chromosome; it does not automatically identify which parent supplied
+that chromosome.
+
+A variant with two possible alleles in the population is **biallelic**.
+A site can have more than two alleles across a population even though a
+diploid person ordinarily carries only two copies at that site. The
+simple tables below assume biallelic sites. \[2,5\]
 
 ## 3.1 Homozygous and heterozygous
 
@@ -265,8 +278,15 @@ The genotype has not changed. Only the definition of the counted allele
 has changed.
 
 This is why a PRS calculation can be seriously wrong even when the
-correct variants are present: counting the wrong allele can reverse the
-direction of contributions.
+correct variants are present: counting the wrong allele with the
+original weight can reverse which genotypes receive the larger
+contribution.
+
+For a biallelic diploid site, A dosage = 2 - G dosage. If a model is
+deliberately rewritten to count A instead of G, its coefficient changes
+sign and its constant term must also be accounted for. Simply swapping
+the allele label is not a valid conversion. When applying a published
+score, retain its specified allele and weight. \[7,11\]
 
 ## 5.2 Connecting dosage to the score
 
@@ -295,7 +315,7 @@ determines whether G raises or lowers that score.
 
 # 6. Genotype call versus imputed dosage
 
-## 6.1 Directly observed or hard-called genotype
+## 6.1 Genotype calls
 
 A genotyping array measures a selected set of variants. Software may
 assign the most likely genotype as:
@@ -304,7 +324,10 @@ assign the most likely genotype as:
 0, 1 or 2 effect-allele copies
 ```
 
-This discrete result is often called a **hard call**.
+This discrete result is often called a **hard call**. It is an inference
+from measurement data and can contain errors. Hard calls can also be
+derived from imputation probabilities, so ‘hard-called’ does not
+necessarily mean directly genotyped.
 
 ## 6.2 Why are genotypes imputed?
 
@@ -328,9 +351,9 @@ carrying 0, 1 or 2 effect-allele copies.
 Consider:
 
 ``` text
-Probability of dosage 0 = 0.05
-Probability of dosage 1 = 0.25
-Probability of dosage 2 = 0.70
+Probability of genotype with 0 copies = 0.05
+Probability of genotype with 1 copy = 0.25
+Probability of genotype with 2 copies = 0.70
 ```
 
 The expected dosage is:
@@ -363,8 +386,11 @@ Using the preceding probabilities:
 - the most likely hard call is 2;
 - the expected dosage is 1.65.
 
-The dosage retains more uncertainty information. Many PRS tools can use
-dosage data directly.
+The dosage uses the genotype probabilities instead of discarding them to
+select a single genotype. However, it does not preserve the full
+uncertainty: probabilities (0, 1, 0) and (0.5, 0, 0.5) both give dosage
+1, despite very different confidence. Many PRS tools can use dosage data
+directly. \[6,7\]
 
 Imputation quality metrics, often reported using names such as INFO or
 imputation R-squared, summarize how reliably a variant was imputed
@@ -417,9 +443,11 @@ genotype_data
 #> 4 Person 4      A/G        1
 #> 5 Person 5      A/A        0
 
-number_of_people <- nrow(genotype_data)
+observed <- !is.na(genotype_data$G_dosage)
+number_of_people <- sum(observed)
+stopifnot(number_of_people > 0)
 total_allele_copies <- 2 * number_of_people
-number_of_G_alleles <- sum(genotype_data$G_dosage)
+number_of_G_alleles <- sum(genotype_data$G_dosage[observed])
 frequency_G <- number_of_G_alleles / total_allele_copies
 frequency_A <- 1 - frequency_G
 
@@ -428,6 +456,12 @@ frequency_G
 frequency_A
 #> [1] 0.6
 ```
+
+The denominator includes only people with a non-missing genotype at this
+site. If one genotype is missing, its two copies are excluded from both
+numerator and denominator. Missing is not the same as zero copies. With
+imputed dosages, the same calculation estimates frequency using expected
+rather than observed counts.
 
 ## 7.1 Minor allele frequency
 
@@ -470,7 +504,9 @@ is:
 | Low-frequency     | MAF from 1% to below 5% |
 | Rare              |            MAF below 1% |
 
-These are conventions, not laws of biology.
+These are conventions, not laws of biology. Always state the population
+and cutoff. At a biallelic site with both allele frequencies equal to
+0.50, neither allele is uniquely the minor allele.
 
 Historically, many PRSs have focused on common variants because GWAS and
 genotyping arrays were designed to study them efficiently.
@@ -565,7 +601,9 @@ Different PRS methods handle LD differently:
 - a published fixed score uses whatever LD strategy its developers
   selected.
 
-Chapter 11 will explain LD and reference panels in detail.
+Physical proximity does not guarantee strong LD, and correlation can
+also occur over longer distances. Later chapters will explain LD and
+reference panels in detail. \[5,7\]
 
 # 12. Genetic ancestry and population structure
 
@@ -592,9 +630,15 @@ differently in another due to:
 - phenotype-definition differences; and
 - statistical interactions among these factors.
 
-Principal components are commonly used to summarize major axes of
-genetic variation, but they do not solve every portability or equity
-problem.
+**Population structure** means systematic genetic differences within a
+sample, often related to ancestry. If disease occurrence also differs
+between those groups for other reasons, an unadjusted GWAS can mistake
+those group differences for a variant–disease association.
+
+**Principal components**, or PCs, are numerical summaries of major
+patterns of genetic variation. Researchers often adjust for them, but
+PCs do not solve every confounding, portability or equity problem.
+\[7,12\]
 
 # 13. What genetic data look like
 
@@ -609,6 +653,12 @@ problem.
 Real genotype data are stored in efficient formats such as PLINK
 BED/BIM/FAM, PGEN/PVAR/PSAM, VCF or BCF rather than a simple
 spreadsheet.
+
+For a real file, check the meaning of its allele columns rather than
+assuming ‘allele 1’ means the PRS effect allele. PLINK BED stores hard
+calls; dosage-preserving formats are needed when retaining imputation
+dosage. Consult the format and import documentation for the chosen tool.
+\[13\]
 
 ## 13.2 A simplified scoring file
 
@@ -687,7 +737,17 @@ Possible matches include direct and strand-complement matches. Ambiguous
 A/T and C/G variants require particular care because strand reversal
 does not change the unordered allele pair.
 
-Full harmonization will be covered in Chapter 10.
+DNA has two complementary strands: A pairs with T, and C pairs with G.
+Thus an A/G allele pair on one strand can be represented as T/C on the
+other. A strand complement is different from swapping the effect allele
+with the other allele.
+
+For A/T and C/G sites, the allele letters alone cannot resolve strand
+orientation. Frequency information from a suitable comparison sample can
+sometimes help, but is less informative near frequency 0.50. Unresolved
+variants should be excluded or handled using a documented method, rather
+than guessed. Full harmonization will be covered in a later chapter.
+\[7\]
 
 ## Step 5: Count or estimate effect-allele copies
 
@@ -924,11 +984,12 @@ multiplied by the corresponding weight.
 
 # 19. What comes next?
 
-Chapter 3 will explain how a genome-wide association study produces the
-effect estimates used as PRS weights. We will introduce cases, controls,
-quantitative traits, beta coefficients, odds ratios, standard errors,
-confidence intervals, P values and sample size using beginner-friendly
-examples.
+Chapter 3 will explain how a genome-wide association study produces
+effect estimates used to develop PRS weights. Final weights may differ
+from the original GWAS estimates because PRS methods can adjust them. We
+will introduce cases, controls, quantitative traits, beta coefficients,
+odds ratios, standard errors, confidence intervals, P values and sample
+size using beginner-friendly examples.
 
 # References
 
@@ -984,3 +1045,6 @@ examples.
     **Clinical use of current polygenic risk scores may exacerbate
     health disparities.** *Nature Genetics.* 2019;51:584–591.
     <https://doi.org/10.1038/s41588-019-0379-x>
+
+13. PLINK 2.0. **File format reference.** Available at:
+    <https://www.cog-genomics.org/plink/2.0/formats>

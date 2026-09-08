@@ -102,7 +102,10 @@ Common covariates include:
 
 Covariates help control systematic differences that might otherwise
 produce biased genetic associations. The correct covariates depend on
-the study design and scientific question.
+the study design and scientific question. Adding more is not always
+better: adjusting for a variable affected by the genotype or outcome can
+change the quantity being estimated or introduce bias. Covariates should
+follow a justified analysis plan. \[3,5\]
 
 ## 3.1 Phenotype quality matters
 
@@ -143,11 +146,14 @@ log odds of disease = intercept
                     + covariate effects
 ```
 
-The variant beta is on the **log-odds scale**.
+In this logistic model, the variant beta is on the **log-odds scale**.
+Some binary-trait GWAS use linear or other models, so a binary phenotype
+alone does not establish the beta scale. Always check the model
+documentation.
 
 ## 4.1 Beta and odds ratio
 
-For a case-control GWAS:
+For an association estimated with logistic regression:
 
 ``` text
 Odds ratio = exp(beta)
@@ -192,8 +198,10 @@ the fitted additive logistic model and conditional on its covariates.
 
 ## 4.3 Critical PRS rule: do not use the odds ratio directly
 
-For an additive weighted score, use the reported beta or the natural
-logarithm of the odds ratio—not the odds ratio itself.
+When constructing an additive score from logistic-GWAS estimates, use
+log-odds beta or the natural logarithm of the odds ratio. When applying
+an existing scoring file, use its documented final weights without
+taking another logarithm. \[5,9\]
 
 Incorrect calculation:
 
@@ -224,8 +232,15 @@ Probability = odds / (1 + odds)
 ```
 
 An odds ratio of 1.20 does not mean a 20-percentage-point increase in
-disease probability. The probability change depends on baseline risk and
-the rest of the prediction model.
+disease probability. It also does not generally mean a 20% increase in
+probability. The probability change depends on baseline risk and the
+rest of the prediction model. For example, multiplying baseline odds by
+1.20 changes a 10% probability to about 11.8%, not 30%.
+
+Case-control studies often deliberately recruit more cases than occur in
+the population. Their sampled case fraction and fitted intercept
+therefore cannot directly supply population disease risk without
+appropriate adjustment.
 
 # 5. Quantitative-trait GWAS
 
@@ -302,7 +317,9 @@ G/G = 2
 ```
 
 The model assumes that moving from dosage 0 to 1 has the same estimated
-effect increment as moving from 1 to 2.
+effect increment as moving from 1 to 2 on the fitted scale: trait units
+for linear regression or log odds for logistic regression. Equal
+log-odds increments do not imply equal probability increments.
 
 This is a statistical model, not a claim that biology is always
 perfectly additive. Dominant, recessive and interaction effects can
@@ -333,9 +350,12 @@ Other allele:  G
 Beta:         -0.10
 ```
 
-These two rows can describe the same underlying association. Allele
-orientation—not only the numerical beta—must therefore be harmonized
-before scoring.
+These two rows can describe the same underlying association. Rewriting a
+full model also changes its intercept because A dosage = 2 - G dosage
+for a biallelic diploid site. A raw score rewritten with opposite
+alleles and negated weights can differ by a constant; do not change a
+published scoring file casually. Allele orientation—not only the
+numerical beta—must therefore be harmonized before scoring.
 
 For an odds ratio:
 
@@ -361,6 +381,13 @@ An approximate 95% confidence interval for a beta is:
 Lower limit = beta - 1.96 × SE
 Upper limit = beta + 1.96 × SE
 ```
+
+This normal-approximation interval assumes that the estimator behaves
+approximately normally. Across repeated studies using a valid procedure,
+about 95% of such intervals would contain the true model parameter. It
+is not a 95% probability statement about the fixed parameter after this
+particular interval has been observed. An interval excluding zero does
+not establish causation.
 
 ## 8.1 Same beta, different uncertainty
 
@@ -395,9 +422,11 @@ odds-ratio confidence interval.
 
 # 9. What does a P value mean?
 
-The P value evaluates how incompatible the observed data are with a
-specified null model, usually no association for that variant, given the
-statistical assumptions.
+A P value is the probability, under the specified null model and its
+assumptions, of obtaining a test statistic at least as extreme as the
+one observed. The null usually states that the variant has no
+association with the phenotype. Smaller values indicate greater
+incompatibility with that model.
 
 A smaller P value indicates stronger statistical evidence against the
 null model. It does **not** directly provide:
@@ -446,8 +475,10 @@ significance line.
 
 </div>
 
-Figure 3.4 uses simulated data and is intended only to explain the
-concept.
+Figure 3.4 uses ten simulated chromosome groups for teaching, not a
+complete human GWAS. The vertical axis makes small P values easier to
+see: P = 0.01 appears at 2 and P = 0.000001 at 6. The horizontal axis
+uses variant order within groups rather than physical distance.
 
 # 10. What are GWAS summary statistics?
 
@@ -471,8 +502,8 @@ These rows are fictional.
 | `CHR` | Chromosome | Variant identification and genome-build checks |
 | `POS` or `BP` | Base-pair position | Variant matching |
 | `SNP` or `ID` | Variant identifier | Matching across datasets |
-| `EA`, `A1` or `ALT` | Reported effect allele, depending on documentation | Determines the counted allele |
-| `OA`, `A2` or `REF` | Other allele, depending on documentation | Enables allele alignment checks |
+| `EA` or sometimes `A1` | Effect allele as defined by the documentation | Determines the counted allele |
+| `OA` or sometimes `A2` | Other allele as defined by the documentation | Enables allele alignment checks |
 | `EAF` | Effect-allele frequency | Quality control and ambiguity checks |
 | `BETA` | Estimated per-allele effect | Candidate PRS weight or method input |
 | `OR` | Per-allele odds ratio | Must usually be converted to log(OR) |
@@ -485,7 +516,9 @@ These rows are fictional.
 
 Column names are not standardized across all GWAS files. `A1` may be the
 effect allele in one file but have another meaning elsewhere. Always
-read the data dictionary.
+read the data dictionary. `REF` and `ALT` describe reference-genome
+orientation; neither automatically identifies the allele to which BETA
+refers.
 
 ## 10.2 Essential metadata not contained in one row
 
@@ -645,9 +678,10 @@ finite discovery sample can have effect sizes that are overestimated in
 that sample. This selection-related inflation is often called **winner’s
 curse**.
 
-Larger discovery samples, shrinkage methods and independent validation
-can reduce its impact, but they do not remove the need for careful
-evaluation.
+Larger discovery samples and suitable shrinkage or bias-correction
+methods can reduce its impact. Independent validation reveals how the
+resulting score performs in new data; it does not itself correct
+inflated discovery weights. \[5,7\]
 
 # 15. Discovery, tuning and validation samples
 
@@ -673,8 +707,12 @@ Overlap is especially concerning when:
 - many weak variants are included; or
 - the score is tuned and evaluated in the same people.
 
-The safest design uses independent discovery, tuning and validation
-samples whenever feasible.
+Use independent discovery, tuning and final evaluation samples whenever
+feasible; close relatives across these groups can also compromise
+independence. ‘Validation’ sometimes means tuning in software tutorials,
+so describe each dataset’s actual role. Properly nested cross-validation
+can support evaluation when data are limited, provided all model
+selection occurs inside the training folds. \[5,7,8\]
 
 # 16. Why ancestry match matters
 
@@ -716,9 +754,13 @@ This can increase sample size, but cohorts may differ in:
 - imputation panel; and
 - covariate adjustment.
 
-A meta-analysis beta is an evidence-weighted estimate across included
-studies. Before using it for PRS, inspect the study description and
-heterogeneity information when available.
+In a conventional inverse-variance fixed-effect meta-analysis, estimates
+are weighted by 1/SE squared, and the model assumes a common underlying
+effect. Other meta-analysis methods use different assumptions. Genuine
+between-study differences are called heterogeneity and can make a pooled
+estimate less representative of a particular target population. Before
+using it for PRS, inspect the study description and heterogeneity
+information when available.
 
 Large consortium results can be excellent PRS inputs, but “large” should
 not be mistaken for “identical across cohorts.”
@@ -883,12 +925,16 @@ selected PRS method.
 For example:
 
 - C+T needs effect estimates, P values and alleles;
-- LDpred2 commonly requires effect estimates, standard errors or
-  sample-size information, alleles and LD information; and
+- LDpred2 requires marginal effect estimates, their standard errors,
+  corresponding sample sizes, allele information and an appropriate LD
+  matrix; and
 - PRS-CS requires correctly formatted summary statistics plus an
   external LD reference panel.
 
-Exact requirements will be provided in the method-specific chapters.
+For LDpred2, the LD reference should represent the discovery GWAS
+ancestry; matching it only to the target cohort is insufficient when the
+discovery population differs. Exact requirements will be provided in the
+method-specific chapters. \[10,14\]
 
 ## Step 12: Create a provenance record
 
@@ -964,24 +1010,26 @@ example_sumstats
 This fictional table intentionally contains problems.
 
 ``` r
-example_sumstats$Missing_beta <- is.na(example_sumstats$BETA)
-example_sumstats$Invalid_SE <- is.na(example_sumstats$SE) | example_sumstats$SE <= 0
-example_sumstats$Invalid_P <- is.na(example_sumstats$P) |
+example_sumstats$Missing_or_nonfinite_beta <- !is.finite(example_sumstats$BETA)
+example_sumstats$Invalid_SE <- !is.finite(example_sumstats$SE) | example_sumstats$SE <= 0
+example_sumstats$Invalid_P <- !is.finite(example_sumstats$P) |
   example_sumstats$P < 0 | example_sumstats$P > 1
-example_sumstats$Invalid_EAF <- is.na(example_sumstats$EAF) |
+example_sumstats$Invalid_EAF <- !is.finite(example_sumstats$EAF) |
   example_sumstats$EAF < 0 | example_sumstats$EAF > 1
+example_sumstats$Zero_P_needs_review <- is.finite(example_sumstats$P) &
+  example_sumstats$P == 0
 
 example_sumstats
-#>          SNP EA OA  BETA    SE       P  EAF Missing_beta Invalid_SE Invalid_P
-#> 1 rsExample1  G  A  0.08  0.02 0.00006 0.31        FALSE      FALSE     FALSE
-#> 2 rsExample2  T  C -0.03  0.01 0.00270 0.47        FALSE      FALSE     FALSE
-#> 3 rsExample3  A  G    NA  0.05 0.20000 1.20         TRUE      FALSE     FALSE
-#> 4 rsExample4  C  T  0.12 -0.02 1.40000 0.08        FALSE       TRUE      TRUE
-#>   Invalid_EAF
-#> 1       FALSE
-#> 2       FALSE
-#> 3        TRUE
-#> 4       FALSE
+#>          SNP EA OA  BETA    SE       P  EAF Missing_or_nonfinite_beta
+#> 1 rsExample1  G  A  0.08  0.02 0.00006 0.31                     FALSE
+#> 2 rsExample2  T  C -0.03  0.01 0.00270 0.47                     FALSE
+#> 3 rsExample3  A  G    NA  0.05 0.20000 1.20                      TRUE
+#> 4 rsExample4  C  T  0.12 -0.02 1.40000 0.08                     FALSE
+#>   Invalid_SE Invalid_P Invalid_EAF Zero_P_needs_review
+#> 1      FALSE     FALSE       FALSE               FALSE
+#> 2      FALSE     FALSE       FALSE               FALSE
+#> 3      FALSE     FALSE        TRUE               FALSE
+#> 4       TRUE      TRUE       FALSE               FALSE
 ```
 
 The checks illustrate questions—not a complete QC pipeline:
@@ -995,13 +1043,29 @@ The checks illustrate questions—not a complete QC pipeline:
 - Are chromosome and position valid for the stated genome build?
 - Are beta, SE and P mutually consistent?
 
+A reported P value of zero can result from rounding or numerical
+underflow; it is not an exact zero probability. Retrieve
+higher-precision or log-P information when possible and follow the
+method’s documented handling. Beta/SE-derived Wald P values need not
+exactly match P values obtained from other tests, such as
+likelihood-ratio or score tests. A discrepancy is a reason to
+investigate the test and scale, not automatically overwrite the reported
+P value.
+
 Never “repair” suspicious values silently. First consult the
 documentation and data provider.
 
-# 21. Real-life interpretation example
+# 21. Applying the ideas to coronary artery disease
 
-Suppose a large coronary artery disease GWAS reports millions of variant
-associations. A PRS developer may use those results in several ways:
+The original PRS-CS study evaluated prediction for quantitative traits
+and diseases, including coronary artery disease, using external data. It
+provides a published example of converting GWAS evidence into adjusted
+scoring weights and assessing prediction. Its findings do not establish
+one method as best for every dataset. \[11\]
+
+For a teaching comparison, suppose a large coronary artery disease GWAS
+reports millions of variant associations. A PRS developer may use those
+results in several ways:
 
 - C+T may retain approximately independent variants below selected
   P-value thresholds;
@@ -1251,3 +1315,7 @@ values is automatically an absolute disease probability.
 
 13. NHGRI-EBI GWAS Catalog. **GWAS Catalog.** Available at:
     <https://www.ebi.ac.uk/gwas/>
+
+14. Privé F. **Polygenic scores and inference using LDpred2.** bigsnpr
+    documentation. Available at:
+    <https://privefl.github.io/bigsnpr/articles/LDpred2.html>

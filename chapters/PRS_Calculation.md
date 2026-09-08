@@ -52,7 +52,10 @@ Where:
   PRS model.
 
 The multiplication occurs variant by variant. The products are then
-added.
+added. All worked genotypes and weights here are fictional. The examples
+assume diploid autosomal sites, one scoring effect allele per variant,
+and completed allele harmonization. They do not assess anyone’s health.
+\[1,2\]
 
 <div class="figure" style="text-align: center">
 
@@ -74,7 +77,7 @@ fixed. Other parts of the score depend on the model and dataset.
 | Component | Fixed or variable? | Explanation |
 |----|----|----|
 | Person’s genotype | Biologically fixed | The inherited alleles do not change because a different PRS method is selected |
-| Imputed dosage | Can vary slightly | It depends on genotype data, reference panel and imputation method |
+| Imputed dosage | Can vary | It depends on genotype data, reference panel and imputation method |
 | Effect allele | Defined by the score | A different scoring file may count the opposite allele |
 | Variant weight | Model-dependent | Different GWAS or PRS methods can assign different weights |
 | Included variants | Model-dependent | Methods select or shrink variants differently |
@@ -157,7 +160,11 @@ p001_raw_prs
 #> [1] 0.38
 ```
 
-The R result should match the hand calculation exactly.
+The R result should equal 0.38 to numerical precision.
+
+``` r
+stopifnot(isTRUE(all.equal(p001_raw_prs, 0.38)))
+```
 
 # 4. Positive, negative and zero contributions
 
@@ -249,6 +256,9 @@ person_scores
 #> 5   P005    0.26
 ```
 
+For this matrix, the expected scores for P001 to P005 are 0.38, -0.07,
+0.86, 0.27 and 0.26, respectively.
+
 Matrix multiplication is only a fast way of performing the same
 variant-by-variant calculation. It does not solve allele alignment,
 missing variants or inappropriate weights.
@@ -310,7 +320,8 @@ A safe workflow should:
 5.  verify the match programmatically; and
 6.  only then multiply dosage by weight.
 
-Chapter 10 will provide a complete harmonization protocol.
+A later chapter will provide a complete harmonization protocol. Matching
+names alone cannot establish that the counted alleles are correct.
 
 # 7. Observed genotype and imputed dosage
 
@@ -403,8 +414,10 @@ Therefore:
 - report the exact output field and options; and
 - preserve the original score output before additional transformation.
 
-The PLINK chapter will examine fields such as score sums, score averages
-and allele denominators using the current PLINK 2 documentation.
+For six fully observed diploid variants, PLINK 2’s usual allele
+denominator is 12: a sum of 0.38 corresponds to an average of about
+0.03167. Check options and missingness before assuming this denominator.
+\[11\]
 
 # 10. Centred PRS
 
@@ -459,7 +472,10 @@ Interpretation:
 ## 11.1 Simulate a larger reference population
 
 We will create a teaching reference population using the six fictional
-variants.
+variants. The simulation draws variants independently and assumes
+Hardy–Weinberg genotype proportions within each site. Real scoring
+variants can be correlated through LD; this is an arithmetic
+demonstration, not a realistic population-genetics model.
 
 ``` r
 set.seed(404)
@@ -478,6 +494,7 @@ reference_raw_prs <- as.numeric(reference_dosage %*% score_file$Weight)
 
 reference_mean <- mean(reference_raw_prs)
 reference_sd <- sd(reference_raw_prs)
+stopifnot(is.finite(reference_sd), reference_sd > 0)
 
 reference_mean
 #> [1] 0.063576
@@ -509,8 +526,16 @@ the ordering of people.
 
 The red line represents P001 in both panels.
 
-Standardization does not improve the score’s predictive accuracy. It
-only expresses the score in reference-standard-deviation units.
+A single fixed, positive rescaling preserves ranking and adds no
+predictive information. It preserves AUC and the R-squared of an
+otherwise equivalent fitted linear model with an intercept. It does not
+make the score normally distributed.
+
+**Standardize the intended quantity.** PLINK 2’s `variance-standardize`
+scoring option standardizes each variant’s dosage before summation. That
+is different from converting the final PRS to a Z-score and can change
+variant contributions and rankings. Do not apply it to a published score
+unless its model requires it. \[11\]
 
 # 12. Percentile
 
@@ -524,7 +549,11 @@ Percentage of reference scores less than or equal to the person's score
 ```
 
 ``` r
-p001_percentile <- mean(reference_raw_prs <= p001_raw_prs) * 100
+## Round only for tie comparison: these toy weights have two decimal places.
+## Retain the unrounded scores for all other calculations.
+reference_for_rank <- round(reference_raw_prs, 10)
+person_for_rank <- round(p001_raw_prs, 10)
+p001_percentile <- mean(reference_for_rank <= person_for_rank) * 100
 p001_percentile
 #> [1] 92.32
 ```
@@ -540,9 +569,15 @@ population. A percentile describes ranking, not disease probability.
 
 </div>
 
-If P001 is at the 80th percentile, it means that P001’s score is greater
-than or equal to approximately 80% of scores in this particular
-reference dataset.
+Here we use the empirical cumulative proportion: ties count as ‘at or
+below’. A midpoint convention would count half of tied scores instead.
+Ties are common in this six-variant example; the convention must be
+reported. For real data, any numerical tolerance should match the
+score’s precision rather than be chosen to change rankings.
+
+As a separate interpretation example, if someone is at the 80th
+percentile, it means that their score is greater than or equal to
+approximately 80% of scores in this particular reference dataset.
 
 It does **not** mean:
 
@@ -599,7 +634,11 @@ For a case-control analysis, define one appropriate reference rule in
 advance, such as standardizing using the combined analytical sample or
 an independent control/reference group, depending on the scientific aim.
 
-Report exactly which mean and standard deviation were used.
+Report exactly which mean and standard deviation were used. A
+case-enriched study sample does not provide general-population
+percentiles merely because cases and controls were standardized
+together. For prediction in new people, retain the reference parameters
+specified by the fitted model. \[3,12\]
 
 ## 14.2 Ancestry adjustment is not a cure for poor portability
 
@@ -625,8 +664,13 @@ genotype data because of:
 
 ## 15.1 Why missing variants change the score
 
-Suppose rsV4 is missing for P001. Its expected contribution in the
-complete example was:
+Distinguish a variant absent from the entire dataset from a missing
+genotype for one participant at an otherwise available variant. Software
+mean imputation of missing genotypes does not necessarily restore a
+variant absent from the input dataset.
+
+Suppose rsV4 is missing for P001. Its known contribution in the complete
+fictional example was:
 
 ``` text
 1 × 0.30 = 0.30
@@ -638,8 +682,10 @@ If it is simply removed:
 Incomplete score = 0.38 - 0.30 = 0.08
 ```
 
-The incomplete score is not equivalent to the published six-variant
-score.
+The incomplete score is not equivalent to the complete fictional
+six-variant score. Comparing it with a full-score reference distribution
+can produce misleading percentiles. Reference and target scores need
+compatible variant coverage and processing.
 
 ``` r
 complete_score <- p001_raw_prs
@@ -678,7 +724,8 @@ include:
 - excluding poorly covered variants;
 - using imputed dosages;
 - mean-imputing missing genotype dosage;
-- using an approved proxy variant;
+- using a proxy only when substitution and allele alignment are
+  explicitly supported and validated for the scoring model;
 - recalculating a documented partial score; or
 - selecting a different validated score with better coverage.
 
@@ -720,19 +767,25 @@ mean_imputed_contribution
 #> [1] 0.108
 ```
 
+This expectation does not require Hardy–Weinberg equilibrium; it follows
+from the mean allele count in a diploid population.
+
 Mean imputation prevents a missing value from being treated as zero
 effect-allele copies. However, it adds the population-average expected
 contribution rather than recovering the person’s true genotype.
 
-The allele frequency used for imputation should come from a defensible
-relevant dataset, and the software’s exact default behaviour must be
-documented.
+Mean imputation does not restore individual differences at a missing
+site. If a variant is missing for everyone, adding its mean contribution
+adds only a constant. Different missingness between groups can still
+distort comparison. The frequency source and software behaviour must be
+documented. \[2,11\]
 
 # 17. Binary-trait scores: raw log-odds sum
 
-If all weights come from additive log-odds coefficients for the same
-phenotype and compatible model, the raw score is on a log-odds-related
-scale.
+A sum of log-odds weights has a log-odds-related scale, but marginal
+GWAS coefficients are not automatically the coefficients of one valid
+joint logistic model. Exponentiating their sum does not establish a
+calibrated odds ratio. \[2\]
 
 For example:
 
@@ -788,8 +841,12 @@ or_per_sd
 #> [1] 1.648721
 ```
 
-The estimated odds ratio is approximately 1.65 per
-one-standard-deviation increase, conditional on the included covariates.
+The estimated odds ratio is approximately 1.65 per one
+reference-standard-deviation increase, conditional on the included
+covariates and the assumed linear log-odds relationship. In a real
+analysis, report its confidence interval and the reference used for
+standardization. A per-SD odds ratio is an association measure; by
+itself it does not establish accurate absolute-risk prediction.
 
 This is different from exponentiating one person’s raw score without a
 defined comparison and validated model.
@@ -798,14 +855,19 @@ defined comparison and validated model.
 
 Suppose a validated model reports an odds ratio of 2 for a defined score
 contrast. The corresponding probability change depends on baseline
-probability.
+probability. Here ‘baseline’ must mean the probability at the reference
+score, for the same outcome, time horizon and covariate profile as the
+comparison. It cannot simply be overall population prevalence multiplied
+by an adjusted odds ratio.
 
 ``` r
 apply_odds_ratio <- function(baseline_probability, odds_ratio) {
-  baseline_odds <- baseline_probability / (1 - baseline_probability)
-  new_odds <- baseline_odds * odds_ratio
-  new_probability <- new_odds / (1 + new_odds)
-  new_probability
+  stopifnot(is.numeric(baseline_probability), is.numeric(odds_ratio),
+            all(is.finite(baseline_probability)),
+            all(baseline_probability >= 0 & baseline_probability <= 1),
+            length(odds_ratio) == 1L, is.finite(odds_ratio), odds_ratio > 0)
+  odds_ratio * baseline_probability /
+    (1 - baseline_probability + odds_ratio * baseline_probability)
 }
 
 apply_odds_ratio(0.02, 2)
@@ -1009,11 +1071,23 @@ variant order does not match.
 
 ``` r
 calculate_prs <- function(dosage_matrix, score_table) {
+  if (!is.matrix(dosage_matrix) || !is.numeric(dosage_matrix) ||
+      nrow(dosage_matrix) == 0L || ncol(dosage_matrix) == 0L) {
+    stop("dosage_matrix must be a nonempty numeric matrix")
+  }
+  if (!is.data.frame(score_table)) stop("score_table must be a data frame")
   required_columns <- c("Variant", "Weight")
 
   if (!all(required_columns %in% names(score_table))) {
     stop("score_table must contain Variant and Weight columns")
   }
+
+  if (!is.character(score_table$Variant) ||
+      anyNA(score_table$Variant) || any(!nzchar(score_table$Variant)) ||
+      anyDuplicated(score_table$Variant)) {
+    stop("This one-allele-per-variant example requires unique, nonempty variant names")
+  }
+  if (!is.numeric(score_table$Weight)) stop("Weights must be numeric")
 
   if (is.null(colnames(dosage_matrix))) {
     stop("dosage_matrix must have variant column names")
@@ -1031,8 +1105,8 @@ calculate_prs <- function(dosage_matrix, score_table) {
     stop("Autosomal diploid dosages must lie between 0 and 2")
   }
 
-  if (anyNA(dosage_matrix)) {
-    stop("Missing dosages require an explicit pre-specified rule")
+  if (any(!is.finite(dosage_matrix))) {
+    stop("Missing or non-finite dosages require correction before scoring")
   }
 
   as.numeric(dosage_matrix %*% score_table$Weight)
@@ -1227,8 +1301,10 @@ Does converting a raw PRS to a Z-score improve its AUC or R-squared?
 Show answer
 </summary>
 
-No. Linear standardization changes the units but preserves ranking. It
-does not add predictive information.
+No. A fixed positive rescaling preserves ranking and AUC. R-squared is
+unchanged for an equivalent fitted linear model with an intercept. A
+prediction model must still receive the score on the scale it was
+trained to use.
 
 </details>
 
