@@ -6,3 +6,4 @@ Chapters:
   Score?](chapters/Chapter_01_What_Is_a_Polygenic_Risk_Score)
 - [Genetic Foundations for
   PRS](chapters/Chapter_02_Genetic_Foundations_for_PRS)
+- [From GWAS to PRS](chapters/Chapter_03_From_GWAS_to_PRS)
