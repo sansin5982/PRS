@@ -25,3 +25,10 @@ Chapters:
 - [Association Analysis](chapters/Chapter_15_Association_Analysis)
 - [Independent Prediction
   Evaluation](chapters/Chapter_16_Independent_Prediction_Evaluation)
+- [Calibration and Absolute
+  Risk](chapters/Chapter_17_Calibration_and_Absolute_Risk)
+- [Clinical Utility](chapters/Chapter_18_Clinical_Utility)
+- [Portability and Sensitivity
+  Analysis](chapters/Chapter_19_Portability_and_Sensitivity_Analysis)
+- [Reporting and
+  Reproducibility](chapters/Chapter_20_Reporting_and_Reproducibility)
