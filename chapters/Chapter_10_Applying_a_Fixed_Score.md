@@ -1,0 +1,167 @@
+Chapter 10: Applying a Fixed Score
+================
+
+# Reproducing a score is a distinct task
+
+A published score supplies a model to apply. You do not need to
+rediscover its variants, retune its P-value threshold or estimate new
+weights merely to calculate it. However, you must reproduce its allele
+counting, weight interpretation and missing-data conventions.
+
+**Objectives:** calculate a fixed weighted sum, standardize using a
+declared reference, distinguish sum from average, and prepare a
+reproducible scoring command. Prerequisites: Chapters 4 and 7–9.
+
+# 1. The fixed-score route
+
+The inputs are an identified scoring model and compatible target
+genotypes. Outcomes are unnecessary for arithmetic. The output is one
+score per person plus a coverage and processing report. A probability
+model needs additional coefficients and calibration information.
+
+A **fixed score** can nevertheless be part of model development: if you
+estimate its coefficient alongside clinical predictors, you are fitting
+a new outcome model. Selecting the best published score using local
+outcomes also requires evaluation of the entire selection process.
+
+# 2. Recreate and score the synthetic cohort
+
+``` r
+demo <- make_course_data()
+G <- demo$G; w <- demo$weights
+stopifnot(identical(colnames(G),w$ID),!anyDuplicated(w$ID),
+          all(is.finite(G)),all(G>=0 & G<=2),all(is.finite(w$weight)))
+raw_score <- as.numeric(G %*% w$weight)
+stopifnot(isTRUE(all.equal(raw_score,demo$people$PRS)))
+scored <- data.frame(IID=demo$people$IID,role=demo$people$role,PRS=raw_score)
+knitr::kable(head(scored))
+```
+
+| IID    | role      |       PRS |
+|:-------|:----------|----------:|
+| S00001 | Discovery | 0.5205439 |
+| S00002 | Discovery | 0.1775759 |
+| S00003 | Discovery | 0.0303250 |
+| S00004 | Discovery | 0.5263916 |
+| S00005 | Discovery | 0.6904586 |
+| S00006 | Discovery | 0.4889985 |
+
+`%*%` multiplies a matrix by a vector. Each row is a person; each column
+is an A-allele count. This matches the declared A effect allele. The
+helper’s noisy weights imitate a fixed externally supplied model but are
+entirely invented. Their relationship to the generating truth is a
+simulation convenience, not an estimate of clinical performance.
+
+# 3. A reference transformation belongs to the model
+
+``` r
+ref <- scored$PRS[scored$role=="Development"]
+mu <- mean(ref); sigma <- sd(ref)
+stopifnot(is.finite(sigma),sigma>0)
+scored$PRS_z <- (scored$PRS-mu)/sigma
+knitr::kable(data.frame(Reference="Development",Mean=mu,SD=sigma))
+```
+
+| Reference   |      Mean |        SD |
+|:------------|----------:|----------:|
+| Development | 0.7080501 | 0.3886461 |
+
+The same mean and SD are applied to test people. Standardizing the test
+set independently would use a different scale and would not reproduce
+the development transformation. This reference distribution does not by
+itself calibrate disease probabilities. Standardization does not
+guarantee a normal distribution or ancestry portability.
+
+<div class="figure" style="text-align: center">
+
+<img src="figures/chapter-10-ch10-score-distribution-1.png" alt="Figure 10.1: Fixed synthetic scores standardized using development parameters. This is a score distribution, not a disease-risk distribution." width="90%" />
+<p class="caption">
+
+Figure 10.1: Fixed synthetic scores standardized using development
+parameters. This is a score distribution, not a disease-risk
+distribution.
+</p>
+
+</div>
+
+# 4. Sum, average and missing data
+
+PLINK 2 can output scoring sums and averages. Its average divides by the
+applicable allele-observation denominator, not simply by the number of
+variants. For complete diploid data with 120 variants that denominator
+is 240. Defaults can mean-impute missing genotypes; changing that policy
+changes the calculation. \[1\]
+
+In this complete example, `raw_score/240` is a rescaled version of the
+sum. A positive constant rescaling preserves ranks but changes numeric
+units and coefficients. With variable denominators or inconsistent
+coverage, that simple equivalence may fail. Record the exact output
+column, missing-data policy and variant count. Do not assume a column
+labelled SCORE is the same across software versions.
+
+# 5. Export an optional real software exercise
+
+The companion `export_plink_demo.R` generates a small PED/MAP input and
+matching weights from a subset of our synthetic cohort. Run it
+deliberately from the course root in the Terminal; it is not run by
+knitting.
+
+``` bash
+Rscript scripts/export_plink_demo.R
+plink2 --pedmap results/plink_demo/target --make-pgen --out results/plink_demo/target
+plink2 --pfile results/plink_demo/target --score results/plink_demo/weights.tsv 1 2 3 header-read cols=+scoresums --out results/plink_demo/scored
+```
+
+The script writes `expected_scores.tsv`. Compare each participant’s
+PLINK score sum with `R_sum`, joining by IID. Small floating-point
+differences are normal; a tolerance of 1e-6 is adequate for this
+export’s numerical precision. Investigate systematic disagreement before
+adapting the command to real data.
+
+This exports observed hard calls, not imputed dosages. The command is a
+learning exercise with synthetic variants. It does not establish that a
+published genome-wide score was reproduced.
+
+# 6. A real published-score route
+
+PGS000013 is the GPS_CAD score associated with Khera et al. Its record
+identifies the trait, original build and model source. A full
+application needs the actual downloaded scoring file, compatible
+genome-wide target data, and a recorded matching report. \[2\]
+
+Public 1000 Genomes genotypes can support a technical scoring exercise,
+but their public genotype files alone do not supply the prospective CAD
+outcomes needed for our five-year validation. Do not invent those
+outcomes or use the distribution of scores as proof of CAD prediction.
+The course README links the public resource; large downloads are
+optional and never triggered by knitting. \[3\]
+
+# Practice and handover
+
+**Can you score without CAD5?** Yes; calculation does not require
+outcomes.
+
+**Can you exponentiate the raw sum to obtain validated disease odds?**
+Not automatically. That requires an appropriate model and weight
+interpretation.
+
+**Why compare R and PLINK on the same synthetic data?** Agreement tests
+implementation choices while keeping expected arithmetic transparent.
+
+Retain score ID, weight file, input version, score coverage,
+output-column definition and reference mean/SD. Chapters 11–14 introduce
+alternative weight-development routes. Chapters 15–20 evaluate the fixed
+synthetic score so the main evaluation does not secretly choose the best
+method on its test outcomes.
+
+# References
+
+1.  PLINK 2. Linear scoring.
+    <https://www.cog-genomics.org/plink/2.0/score>
+2.  Khera AV, Chaffin M, Aragam KG, et al. Genome-wide polygenic scores
+    for common diseases identify individuals with risk equivalent to
+    monogenic mutations. *Nature Genetics*. 2018;50:1219–1224.
+    <https://doi.org/10.1038/s41588-018-0183-z>
+3.  1000 Genomes Project Consortium. A global reference for human
+    genetic variation. *Nature*. 2015;526:68–74.
+    <https://doi.org/10.1038/nature15393>

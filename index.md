@@ -12,4 +12,8 @@ Chapters:
 - [Planning a PRS Analysis](chapters/Chapter_06_Planning_a_PRS_Analysis)
 - [Preparing the PRS Project and Input
   Files](chapters/Chapter_07_Preparing_the_PRS_Project_and_Input_Files)
-- [Genotype\_Quality\_Control](chapters/Chapter_08_Genotype_Quality_Control)
+- [Genotype Quality
+  Control](chapters/Chapter_08_Genotype_Quality_Control)
+- [Genome Builds and Allele
+  Harmonization](chapters/Chapter_09_Genome_Builds_and_Allele_Harmonization)
+- [Applying a Fixed Score](chapters/Chapter_10_Applying_a_Fixed_Score)

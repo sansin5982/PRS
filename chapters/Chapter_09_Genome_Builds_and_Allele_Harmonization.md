@@ -1,0 +1,165 @@
+Chapter 9: Genome Builds and Allele Harmonization
+================
+
+# The right weight on the wrong allele
+
+A perfectly formatted file can still produce the wrong score. If a
+weight belongs to allele A but the software counts allele G, the
+calculation answers a different question. **Harmonization** makes the
+identity and orientation of genetic records consistent.
+
+**Objectives:** distinguish coordinate conversion, strand
+complementation and allele swapping; implement a small exact/swap audit;
+explain unresolved variants. Prerequisites: Chapters 2, 4, 7 and 8. The
+practical uses fictional diploid SNPs in base R.
+
+# 1. A variant needs more than a label
+
+A genome build is a version of the reference sequence used to describe
+positions. A coordinate on one build cannot be assumed to mean the same
+thing on another. An rs identifier helps identify a record but does not
+replace build, allele and representation checks.
+
+An indel may have equivalent sequence representations at different
+neighboring positions. Normalization and reference checking help make
+those representations consistent. Multiallelic sites need
+allele-specific handling. Our exercise excludes these complexities
+deliberately; it is not a production harmonizer. \[1\]
+
+**Effect allele** means the allele receiving the weight. **Counted
+allele** means the allele represented by a dosage column. **Strand
+complementation** replaces A with T and C with G to describe the
+opposite DNA strand. **Swapping** changes which of two alleles is
+counted. These operations are not interchangeable.
+
+# 2. Work through three records
+
+We assume all records share one verified fictional build, forward-strand
+orientation and biallelic diploid representation. This metadata is an
+assumption supplied by the exercise, not something the following code
+proves.
+
+``` r
+score <- data.frame(ID=c("v1","v2","v3"),EA=c("A","C","A"),
+                    OA=c("G","T","C"),weight=c(.2,-.1,.3))
+target <- data.frame(ID=c("v2","v1","v3"),counted=c("T","A","G"),
+                     other=c("C","G","T"),dosage=c(2,1,0))
+stopifnot(!anyDuplicated(score$ID),!anyDuplicated(target$ID))
+i <- match(score$ID,target$ID); stopifnot(!anyNA(i))
+target <- target[i,]
+exact <- score$EA==target$counted & score$OA==target$other
+swap <- score$EA==target$other & score$OA==target$counted
+status <- ifelse(exact,"Exact",ifelse(swap,"Swap counted allele","Unresolved"))
+aligned <- rep(NA_real_,nrow(score))
+aligned[exact] <- target$dosage[exact]
+aligned[swap] <- 2-target$dosage[swap]
+report <- data.frame(score,target_dosage=target$dosage,status,
+                     effect_dosage=aligned)
+knitr::kable(report)
+```
+
+| ID  | EA  | OA  | weight | target_dosage | status              | effect_dosage |
+|:----|:----|:----|-------:|--------------:|:--------------------|--------------:|
+| v1  | A   | G   |    0.2 |             1 | Exact               |             1 |
+| v2  | C   | T   |   -0.1 |             2 | Swap counted allele |             0 |
+| v3  | A   | C   |    0.3 |             0 | Unresolved          |            NA |
+
+``` r
+stopifnot(identical(aligned[1:2],c(1,0)),is.na(aligned[3]))
+```
+
+For v2, two copies of T mean zero copies of C. Its original weight
+remains -0.1 when we transform the dosage. v3 is unresolved under our
+specified rules. Although a complement operation might explain its
+alleles in some settings, we do not invent a strand correction contrary
+to the stated metadata.
+
+# 3. Why a sign flip alone changes a raw score
+
+``` text
+If d counts the other allele, effect-allele dosage = 2 - d.
+Correct contribution = w × (2 - d) = 2w - wd.
+```
+
+Using `-w × d` omits the constant `2w`. For a fixed set of complete
+diploid variants, a constant changes the raw scale without changing
+ranks; missingness and differing variant sets make the situation more
+complicated. The simple, transparent approach here is to count the
+documented effect allele and retain the weight.
+
+<div class="figure" style="text-align: center">
+
+<img src="figures/chapter-09-ch09-orientation-figure-1.png" alt="Figure 9.1: Changing the counted allele reverses dosage direction. This identity assumes a biallelic diploid locus." width="90%" />
+<p class="caption">
+
+Figure 9.1: Changing the counted allele reverses dosage direction. This
+identity assumes a biallelic diploid locus.
+</p>
+
+</div>
+
+Haploid regions and some sex-chromosome analyses need different ploidy
+handling. Do not apply `2-d` indiscriminately across all chromosomes.
+
+# 4. Ambiguity and missing coverage
+
+A/T and C/G SNPs are palindromic because their allele pairs are
+unchanged by strand complementation. Depending on the metadata,
+frequency evidence and method, orientation may remain ambiguous. Similar
+frequencies are supporting evidence, not a universal identity test.
+Different populations and low-frequency alleles complicate comparisons.
+\[2\]
+
+Do not calculate `sum(weight*aligned,na.rm=TRUE)` and present it as the
+complete score: that silently drops unresolved terms. Instead, report
+the unresolved records and apply a prespecified coverage policy. A high
+fraction of matched variants is reassuring only in context; missing a
+few influential terms can still matter.
+
+# 5. A production handover
+
+A real harmonization protocol starts with source metadata and confirmed
+builds. It normalizes appropriate variant representations, investigates
+duplicate keys, matches alleles, handles ambiguity according to a
+documented policy, and writes the final matched scoring table and
+exclusion report. Record exact matches, swaps, strand operations,
+unresolved records and absent variants separately.
+
+Our two resolved records contribute 0.2 in total, but that is **a
+partial teaching sum**, not the three-variant score. The correct next
+action is to resolve v3 or explicitly define and validate a modified
+score. The course’s main synthetic dataset has known A-counted genotypes
+and matching A/G weights; later method demonstrations use that declared
+orientation.
+
+**Real application:** the PGS Catalog distributes harmonized scoring
+files for specified genome builds. That reduces coordinate preparation
+work, but the target genotypes still need compatible matching. It does
+not remove target QC or establish that every downloaded scoring term was
+used. \[3\]
+
+# Practice
+
+**Does matching the rsID prove the alleles match?** No; allele and build
+checks remain.
+
+**When does 2-d apply?** To changing the counted allele at a biallelic
+diploid locus.
+
+**Why keep unresolved records visible?** They explain score coverage and
+prevent a partial sum from being mistaken for a reproduced model.
+
+**Can a constant shift change a percentile?** Not when the same shift is
+applied consistently to everyone and their reference scores. An
+inconsistent transformation can change interpretation.
+
+# References
+
+1.  Danecek P, Bonfield JK, Liddle J, et al. Twelve years of SAMtools
+    and BCFtools. *GigaScience*. 2021;10:giab008.
+    <https://doi.org/10.1093/gigascience/giab008>
+2.  Choi SW, Mak TSH, O’Reilly PF. Tutorial: a guide to performing
+    polygenic risk score analyses. *Nature Protocols*.
+    2020;15:2759–2772. <https://doi.org/10.1038/s41596-020-0353-1>
+3.  PGS Catalog. Download information.
+    <https://www.pgscatalog.org/downloads/>
