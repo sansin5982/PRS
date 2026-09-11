@@ -1,0 +1,199 @@
+Chapter 8: Genotype Quality Control
+================
+
+# Can poor measurements look like genetic risk?
+
+Suppose cases were genotyped on one laboratory plate and controls on
+another. If the plates differ in measurement quality, a score can appear
+associated with disease partly because of laboratory differences.
+Quality control (QC) investigates whether the genetic measurements are
+reliable enough for their intended use.
+
+**Objectives:** distinguish sample and variant checks, interpret
+missingness and allele frequency, understand why QC is iterative, and
+create an auditable exclusion record. Prerequisites are Chapters 2, 6
+and 7. The practical uses base R and the supplied helper script; no real
+genotypes are required.
+
+# 1. What QC investigates
+
+A sample check concerns a person: unusually high missingness, unexpected
+heterozygosity, possible duplication, or inconsistent identifiers. A
+variant check concerns a locus: low call rate, unreliable imputation,
+unusual genotype patterns or technical differences between groups. Some
+findings require investigation rather than automatic deletion. \[1\]
+
+**Heterozygosity** describes carrying two different alleles. An unusual
+value can reflect contamination, ancestry, inbreeding or a technical
+issue. Compare appropriate groups and markers. **Hardy–Weinberg
+equilibrium (HWE)** supplies expected genotype proportions under
+assumptions about a population. A small HWE P value is not proof of
+error; ancestry mixture, relatedness and disease ascertainment can
+matter. In case-control work, assess relevant controls and population
+groups rather than blindly applying one filter to everyone. \[1\]
+
+| Issue | Possible consequence for PRS | Appropriate response |
+|----|----|----|
+| Missing genotypes | Inconsistent information across people | Inspect sample and variant missingness and scoring policy |
+| Poor imputation | Dosages may be inaccurate despite being present | Inspect the imputation quality measure and source |
+| Duplicates or relatives | Non-independent evaluation | Resolve duplicate samples and follow the relatedness plan |
+| Batch effects | Technical variation can resemble prediction | Compare quality by laboratory batch and relevant groups |
+| Population structure | Pooled summaries may conceal differences | Examine ancestry structure without equating it with nationality |
+
+The purpose is not to make everyone genetically similar. Removing a
+population group merely because it differs from the largest group
+changes the target population and can reduce applicability.
+
+# 2. The recurring project
+
+Our synthetic cohort contains 120 fictional autosomal biallelic SNPs and
+11,000 unrelated people: 5,000 discovery, 2,000 development, 1,000
+tuning, 2,000 test and 1,000 LD-reference individuals. The last group
+has no supplied outcomes. Adjacent six-variant blocks share simulated
+haplotype information. This is a small learning model of LD, not a human
+reference panel.
+
+CAD5 is an invented, fully observed five-year binary outcome. There is
+no censoring, competing death, ancestry structure or batch effect in the
+baseline simulation. The helper deliberately provides truth weights for
+teaching, but analytical weight estimation must not use them. A separate
+fixed, noisy weight vector supports the published-score-style route; it
+is not an actual published CAD score.
+
+``` r
+demo <- make_course_data()
+knitr::kable(as.data.frame(table(demo$people$role)))
+```
+
+| Var1         | Freq |
+|:-------------|-----:|
+| Development  | 2000 |
+| Discovery    | 5000 |
+| LD_reference | 1000 |
+| Test         | 2000 |
+| Tuning       | 1000 |
+
+``` r
+stopifnot(nrow(demo$G)==11000,ncol(demo$G)==120,
+          identical(rownames(demo$G),demo$people$IID))
+```
+
+# 3. A worked missingness audit
+
+We introduce failures into a copy of the development genotypes. Original
+simulation objects remain intact. The thresholds below are teaching
+decisions to make failures visible, not universal genomic QC
+recommendations.
+
+``` r
+ix <- which(demo$people$role=="Development")
+G <- demo$G[ix,,drop=FALSE]
+G[1,1:30] <- NA                 # One person loses 25% of observations.
+G[1:400,120] <- NA              # One locus loses 20% of observations.
+sample_missing <- rowMeans(is.na(G))
+remove_people <- sample_missing > .10
+G1 <- G[!remove_people,,drop=FALSE]
+variant_missing <- colMeans(is.na(G1))
+remove_variants <- variant_missing > .10
+G2 <- G1[,!remove_variants,drop=FALSE]
+audit <- data.frame(Stage=c("Input","After person filter","After variant filter"),
+                    People=c(nrow(G),nrow(G1),nrow(G2)),
+                    Variants=c(ncol(G),ncol(G1),ncol(G2)))
+knitr::kable(audit)
+```
+
+| Stage                | People | Variants |
+|:---------------------|-------:|---------:|
+| Input                |   2000 |      120 |
+| After person filter  |   1999 |      120 |
+| After variant filter |   1999 |      119 |
+
+``` r
+stopifnot(sum(remove_people)==1,sum(remove_variants)==1,
+          nrow(G2)==1999,ncol(G2)==119)
+```
+
+We remove the person first, then recalculate locus missingness. Changing
+the order can change who crosses a threshold. Document the order and
+reassess the retained data. In a real study, the reason for missingness
+may be more important than the threshold itself.
+
+<div class="figure" style="text-align: center">
+
+<img src="figures/chapter-08-ch08-qc-plot-1.png" alt="Figure 8.1: Artificially introduced missingness. The dashed line is a teaching threshold, not a recommended universal cutoff." width="90%" />
+<p class="caption">
+
+Figure 8.1: Artificially introduced missingness. The dashed line is a
+teaching threshold, not a recommended universal cutoff.
+</p>
+
+</div>
+
+# 4. Frequency has a denominator
+
+For this diploid, hard-call example, allele frequency equals the
+observed allele count divided by twice the number of observed genotypes.
+Do not count missing genotypes as zero-copy observations.
+
+``` r
+observed <- colSums(!is.na(G2))
+stopifnot(all(observed>0))
+freq_A <- colSums(G2,na.rm=TRUE)/(2*observed)
+maf <- pmin(freq_A,1-freq_A)
+summary(maf)
+#>    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#>  0.2814  0.2941  0.3004  0.3008  0.3073  0.3187
+```
+
+MAF means minor allele frequency: the less common of the two alleles in
+that sample. Minor status can differ across populations. It does not
+identify the scoring allele. Frequency and missingness passing does not
+mean dosage imputation quality has passed.
+
+# 5. Translating to a real protocol
+
+Start with an unchanged input trio and source metadata. Generate sample
+and variant summaries; inspect batch and population patterns;
+investigate identity and relatedness; establish documented thresholds
+for the actual study; apply coordinated filters; record removed IDs and
+reasons; recheck the remaining data. Save the retained dataset
+separately. Do not alter the only raw copy.
+
+PLINK supports missingness, HWE, heterozygosity and relatedness
+operations, but a command list alone cannot determine appropriate
+thresholds. Importantly, hard-call missingness and dosage missingness
+are different reports. Consult the exact installed version’s
+definitions. \[2\]
+
+**Published example:** Marees and colleagues provide a GWAS QC tutorial
+demonstrating sample and SNP checks. It is a useful methodological
+example, but its choices are not universal rules for every imputed PRS
+dataset. \[1\]
+
+# Practice and handover
+
+**Why not replace NA with 0?** Zero is a measured allele count; NA is
+unknown.
+
+**Does an HWE failure prove contamination?** No. It calls for
+investigation under the relevant population and sampling assumptions.
+
+**Can we use the LD-pruned PCA markers as the entire scoring set?** Not
+automatically. PCA and scoring require different variant sets; retain
+their roles separately.
+
+The output of this practical is the displayed `audit` and named
+exclusion flags. The shared cohort is recreated unchanged in later
+chapters. For real data, retain a sample exclusion table, variant
+exclusion table, QC report and versioned genotype output. Chapter 9
+checks whether retained variants mean the same thing in the scoring
+file.
+
+# References
+
+1.  Marees AT, de Kluiver H, Stringer S, et al. A tutorial on conducting
+    genome-wide association studies: Quality control and statistical
+    analysis. *International Journal of Methods in Psychiatric
+    Research*. 2018;27:e1608. <https://doi.org/10.1002/mpr.1608>
+2.  PLINK 2. Basic statistics.
+    <https://www.cog-genomics.org/plink/2.0/basic_stats>

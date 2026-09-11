@@ -10,3 +10,6 @@ Chapters:
 - [How Is a PRS Calculated](chapters/Chapter_04_How_Is_a_PRS_Calculated)
 - [Interpreting a PRS](chapters/Chapter_05_Interpreting_a_PRS)
 - [Planning a PRS Analysis](chapters/Chapter_06_Planning_a_PRS_Analysis)
+- [Preparing the PRS Project and Input
+  Files](chapters/Chapter_07_Preparing_the_PRS_Project_and_Input_Files)
+- [Genotype\_Quality\_Control](chapters/Chapter_08_Genotype_Quality_Control)
