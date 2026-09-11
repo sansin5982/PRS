@@ -1,0 +1,126 @@
+{
+  "chapters": [
+    {
+      "chapter": "Chapter_01_What_Is_a_Polygenic_Risk_Score.Rmd",
+      "words": 4357,
+      "R_chunks": 6,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_02_Genetic_Foundations_for_PRS.Rmd",
+      "words": 5399,
+      "R_chunks": 6,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_03_From_GWAS_to_PRS.Rmd",
+      "words": 6603,
+      "R_chunks": 13,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_04_How_Is_a_PRS_Calculated.Rmd",
+      "words": 6424,
+      "R_chunks": 24,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_05_Interpreting_a_PRS.Rmd",
+      "words": 4826,
+      "R_chunks": 11,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_06_Planning_a_PRS_Analysis.Rmd",
+      "words": 5427,
+      "R_chunks": 12,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_07_Preparing_the_PRS_Project_and_Input_Files.Rmd",
+      "words": 4347,
+      "R_chunks": 17,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_08_Genotype_Quality_Control.Rmd",
+      "words": 1048,
+      "R_chunks": 5,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_09_Genome_Builds_and_Allele_Harmonization.Rmd",
+      "words": 897,
+      "R_chunks": 3,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_10_Applying_a_Fixed_Score.Rmd",
+      "words": 881,
+      "R_chunks": 4,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_11_Clumping_and_Thresholding.Rmd",
+      "words": 804,
+      "R_chunks": 5,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_12_LDpred2.Rmd",
+      "words": 859,
+      "R_chunks": 3,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_13_PRS_CS.Rmd",
+      "words": 952,
+      "R_chunks": 4,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_14_Multi_Ancestry_Methods.Rmd",
+      "words": 981,
+      "R_chunks": 2,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_15_Association_Analysis.Rmd",
+      "words": 854,
+      "R_chunks": 3,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_16_Independent_Prediction_Evaluation.Rmd",
+      "words": 910,
+      "R_chunks": 4,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_17_Calibration_and_Absolute_Risk.Rmd",
+      "words": 725,
+      "R_chunks": 5,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_18_Clinical_Utility.Rmd",
+      "words": 816,
+      "R_chunks": 5,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_19_Portability_and_Sensitivity_Analysis.Rmd",
+      "words": 866,
+      "R_chunks": 4,
+      "markdown_parse": "pass"
+    },
+    {
+      "chapter": "Chapter_20_Reporting_and_Reproducibility.Rmd",
+      "words": 1114,
+      "R_chunks": 2,
+      "markdown_parse": "pass"
+    }
+  ],
+  "errors": [],
+  "R_execution": false
+}

@@ -17,3 +17,8 @@ Chapters:
 - [Genome Builds and Allele
   Harmonization](chapters/Chapter_09_Genome_Builds_and_Allele_Harmonization)
 - [Applying a Fixed Score](chapters/Chapter_10_Applying_a_Fixed_Score)
+- [Clumping and
+  Thresholding](chapters/Chapter_11_Clumping_and_Thresholding)
+- [LDpred2](chapters/Chapter_12_LDpred2)
+- [PRS CS](chapters/Chapter_13_PRS_CS)
+- [Multi Ancestry Methods](chapters/Chapter_14_Multi_Ancestry_Methods)

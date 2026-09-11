@@ -1,0 +1,166 @@
+Chapter 14: Multi-Ancestry Methods and Choosing an Approach
+================
+
+# Why can a large discovery study still be a poor match?
+
+A larger GWAS can estimate associations more precisely, but differences
+in allele frequencies, LD and phenotype measurement can limit transfer
+to another population. Multi-ancestry methods attempt to combine
+information across discovery populations while allowing relevant
+differences.
+
+**Objectives:** explain why pooling is not automatically sufficient,
+describe PRS-CSx, distinguish score combination from individual ancestry
+percentages, and choose a method using data requirements. This is an
+advanced chapter after Chapters 11–13.
+
+# 1. Shared biology does not imply identical statistical inputs
+
+A marker may tag an unobserved causal variant well in one population and
+poorly in another. Different allele frequencies also change available
+information. Environment, ascertainment and clinical care affect
+predictive evaluation. Broad ancestry labels simplify complex variation;
+they are not discrete biological categories or substitutes for local
+validation.
+
+Methods differ in what they share: effect-size information, shrinkage
+parameters, meta-analyzed associations or final scores. A single LD
+panel for a mixed GWAS can be an inadequate representation. Do not
+average arbitrary correlation matrices and assume the resulting method
+is validated.
+
+# 2. PRS-CSx and the role of tuning
+
+PRS-CSx extends continuous-shrinkage modelling to population-specific
+summary statistics and LD references. One approach calculates
+population-specific scores and fits a combination using tuning data.
+Auto/meta options provide alternatives that avoid that outcome-based
+combination fitting, with their own assumptions. \[1,2\]
+
+``` text
+Combined score = coefficient_1 × score_1 + coefficient_2 × score_2
+```
+
+The coefficients are prediction weights. They are not an individual’s
+ancestry fractions. A coefficient of 0.7 does not mean 70% ancestry from
+a population.
+
+# 3. A score-combination practical
+
+This exercise creates two noisy proxies for the same synthetic score.
+They are **not ancestry-specific scores** and do not run PRS-CSx. The
+goal is to learn how combination fitting can be separated from testing.
+
+``` r
+demo <- make_course_data(); d <- demo$people
+set.seed(1406)
+d$score1 <- d$PRS+rnorm(nrow(d),0,.3)
+d$score2 <- d$PRS+rnorm(nrow(d),0,.5)
+fit_rows <- d$role=="Tuning"; test_rows <- d$role=="Test"
+center <- vapply(d[fit_rows,c("score1","score2")],mean,numeric(1))
+spread <- vapply(d[fit_rows,c("score1","score2")],sd,numeric(1))
+stopifnot(all(spread>0))
+for(v in names(center)) d[[paste0(v,"_z")]] <- (d[[v]]-center[v])/spread[v]
+combination <- glm(CAD5~score1_z+score2_z,data=d[fit_rows,],family=binomial())
+stopifnot(combination$converged,all(is.finite(coef(combination))))
+p <- predict(combination,newdata=d[test_rows,],type="response")
+knitr::kable(data.frame(Coefficient=names(coef(combination)),
+                        Estimate=unname(coef(combination))),digits=3)
+```
+
+| Coefficient | Estimate |
+|:------------|---------:|
+| (Intercept) |   -2.300 |
+| score1_z    |    0.326 |
+| score2_z    |    0.086 |
+
+``` r
+auc(d$CAD5[test_rows],p)
+#> [1] 0.6156173
+```
+
+The tuning sample fits the combination, so its performance is not final
+evidence. The test score here is an isolated teaching evaluation; it
+must not be used to select the winner of the other chapters’ methods.
+Store the centering and scaling parameters with the coefficients when
+the intended use is prediction for new individuals.
+
+Highly correlated component scores can produce unstable coefficients
+even when the combined prediction is reasonably stable. Negative
+coefficients can occur; do not interpret them as negative ancestry.
+Model stability and independent performance matter more than an
+appealing coefficient narrative.
+
+# 4. What a real PRS-CSx run requires
+
+Use separately documented GWAS files, their sample sizes, compatible
+population LD resources and target variant metadata. Check trait
+definition and effect scale across GWAS, and investigate overlapping
+discovery participants. Run each chromosome required by the model;
+retain posterior weights and matching reports. Decide in advance whether
+using fitted score combinations or a documented auto/meta route. \[2\]
+
+The official repository includes an external two-population
+chromosome-22 test example. That is a method smoke test, not evidence
+for an Indian CAD cohort. Because the recurring course simulation has no
+population structure, it cannot validate multi-ancestry accuracy; the
+conceptual combination exercise above is its appropriate role.
+
+# 5. Compare methods by the question they answer
+
+| Approach | Main inputs | Advantage | Important limitation |
+|----|----|----|----|
+| Fixed published score | Weights and target genotypes | Reproducible application with fewer local choices | Relevance and coverage may be limited |
+| C+T | Summary data, LD, candidate settings | Transparent, relatively economical | Discards correlated information |
+| LDpred2 | Effects, SE, sample size, ordered LD | Flexible LD-aware modelling | Input mismatch and unstable fits need investigation |
+| PRS-CS | Summary data and compatible block LD | Adaptive continuous shrinkage | Reference and sampling demands |
+| PRS-CSx | Multiple GWAS and population references | Combines discovery information across populations | More complex compatibility and evaluation requirements |
+
+Other families include penalized-regression methods such as lassosum and
+Bayesian mixture methods such as SBayesR. Their existence does not
+create an obligation to run every algorithm. Choose a justified
+comparison set, document tuning effort, and evaluate fairly. \[3,4\]
+
+# 6. Published example and interpretation
+
+Ruan and colleagues evaluated PRS-CSx in ancestrally diverse
+populations, providing evidence that sharing information across
+discovery datasets can improve prediction in evaluated settings. This is
+not a guarantee of equal performance across all groups or every admixed
+individual. \[1\]
+
+A useful result in a well-represented evaluation group does not erase
+uncertainty in a small subgroup. Score normalization alone cannot
+demonstrate equal calibration or clinical utility. Chapter 19 evaluates
+population and setting differences explicitly.
+
+# Practice and handover
+
+**Are fitted combination coefficients ancestry percentages?** No; they
+are regression coefficients.
+
+**Does a multi-ancestry method remove the need for target evaluation?**
+No.
+
+**Why not report a competition winner from these toy chapters?** They
+use different didactic exercises and do not constitute a prespecified
+real-data benchmark.
+
+Write a method-choice note giving your available inputs, intended
+population, tuning resources, computational limits and chosen comparison
+set. The following chapters return to the fixed synthetic score and
+examine what credible evaluation requires.
+
+# References
+
+1.  Ruan Y, Lin YF, Feng YCA, et al. Improving polygenic prediction in
+    ancestrally diverse populations. *Nature Genetics*. 2022;54:573–580.
+    <https://doi.org/10.1038/s41588-022-01054-7>
+2.  PRS-CSx official repository. <https://github.com/getian107/PRScsx>
+3.  Mak TSH, Porsch RM, Choi SW, Zhou X, Sham PC. Polygenic scores via
+    penalized regression on summary statistics. *Genetic Epidemiology*.
+    2017;41:469–480. <https://doi.org/10.1002/gepi.22050>
+4.  Lloyd-Jones LR, Zeng J, Sidorenko J, et al. Improved polygenic
+    prediction by Bayesian multiple regression on summary statistics.
+    *Nature Communications*. 2019;10:5086.
+    <https://doi.org/10.1038/s41467-019-12653-0>
