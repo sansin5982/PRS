@@ -2,5 +2,4 @@
 
 Chapters:
 
-- [Introduction to Polygenic Risk
-  Scores](chapters/Chapter_01_What_Is_a_Polygenic_Risk_Score)
+- [What\_Is\_a\_Polygenic\_Risk\_Score](chapters/Chapter_01_What_Is_a_Polygenic_Risk_Score)
