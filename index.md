@@ -22,3 +22,4 @@ Chapters:
 - [LDpred2](chapters/Chapter_12_LDpred2)
 - [PRS CS](chapters/Chapter_13_PRS_CS)
 - [Multi Ancestry Methods](chapters/Chapter_14_Multi_Ancestry_Methods)
+- [Association Analysis](chapters/Chapter_15_Association_Analysis)
