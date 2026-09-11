@@ -1,11 +1,6 @@
 Chapter 3: From GWAS to PRS
 ================
 
-> **Course edition:** Foundation examples in Chapters 1–7 are
-> self-contained mini-exercises. The shared synthetic CAD project starts
-> in Chapter 8. They are not different versions of one clinical dataset.
-> No miniature example provides clinical evidence.
-
 # Why connect GWAS and PRS?
 
 In Chapter 1, we learned that a polygenic risk score is a weighted sum

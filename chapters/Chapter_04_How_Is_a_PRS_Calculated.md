@@ -1,11 +1,6 @@
 Chapter 4: How Is a PRS Calculated?
 ================
 
-> **Course edition:** Foundation examples in Chapters 1–7 are
-> self-contained mini-exercises. The shared synthetic CAD project starts
-> in Chapter 8. They are not different versions of one clinical dataset.
-> No miniature example provides clinical evidence.
-
 # Why devote a complete chapter to one calculation?
 
 The basic PRS formula is short. That can make the analysis appear easier
