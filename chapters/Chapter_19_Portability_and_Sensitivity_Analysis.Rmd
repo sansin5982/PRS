@@ -1,0 +1,104 @@
+---
+title: "Chapter 19: Portability and Sensitivity Analysis"
+output:
+  github_document:
+    fig_width: 9
+    fig_height: 5.5
+    dev: png
+    html_preview: false
+---
+
+```{r ch19-setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE,collapse=TRUE,comment="#>",
+  fig.path="figures/chapter-19-",fig.align="center",out.width="90%")
+course_root <- if (file.exists("../scripts/course_helpers.R")) ".." else "."
+stopifnot(file.exists(file.path(course_root,"scripts/course_helpers.R")))
+source(file.path(course_root,"scripts/course_helpers.R"))
+```
+
+# What changes when the setting changes?
+
+A model tested in one population may behave differently elsewhere. **Portability** concerns how well it transfers. **Sensitivity analysis** asks how conclusions depend on specified assumptions or processing choices.
+
+**Objectives:** identify sources of performance variation, distinguish normalization from validation, demonstrate a measurement failure, and plan interpretable subgroup comparisons. Prerequisites: Chapters 6, 14 and 16–18.
+
+# 1. Several changes can happen together
+
+Genetic ancestry, allele frequencies, LD, phenotype definition, age distribution, recruitment, baseline incidence, treatment patterns and laboratory processing can differ. A drop in performance does not identify which one caused it. Conversely, similar AUCs do not establish similar calibration or utility.
+
+A score can show different distributions across groups. Centering each group to mean zero can make histograms look similar while leaving different associations and calibration. An ancestry label is not itself a diagnosis of measurement quality or a sufficient adjustment strategy. [1]
+
+The recurring simulation deliberately lacks population structure. We therefore cannot estimate real ancestry portability from it. The following practical tests a measurement perturbation only; it must not be relabelled an ancestry experiment.
+
+# 2. Corrupt the measured score without changing the model
+
+```{r ch19-measurement-shift}
+bundle <- fit_course_models(); original <- bundle$test
+set.seed(1906)
+corrupted <- original
+corrupted$PRS_z <- original$PRS_z+rnorm(nrow(original),0,1)
+corrupted$p_prs <- predict(bundle$extended,newdata=corrupted,type="response")
+results <- data.frame(Condition=c("Original","Added score measurement noise"),
+ AUC=c(auc(original$CAD5,original$p_prs),auc(corrupted$CAD5,corrupted$p_prs)),
+ Brier=c(mean((original$CAD5-original$p_prs)^2),
+         mean((corrupted$CAD5-corrupted$p_prs)^2)))
+knitr::kable(results,digits=4)
+```
+
+We keep disease outcomes and fitted coefficients fixed. Only the available predictor is damaged. Performance is expected to worsen on average, though finite samples fluctuate. This is a stress test, not a model of real ancestry differences or imputation quality.
+
+```{r ch19-perturbation-plot, echo=FALSE, fig.cap="Figure 19.1: Added measurement noise changes individual probabilities from a fixed synthetic model. This does not simulate ancestry portability."}
+plot(original$p_prs,corrupted$p_prs,pch=16,cex=.4,col=adjustcolor("#2874A6",.25),
+     xlab="Original predicted probability",ylab="Prediction after score noise")
+abline(0,1,lty=2)
+```
+
+# 3. Pair the comparison
+
+```{r ch19-perturbation-uncertainty}
+sensitivity_interval <- paired_auc_bootstrap(original$CAD5,original$p_prs,
+                                              corrupted$p_prs,B=500,seed=1907)
+data.frame(Delta=sensitivity_interval$delta,
+           Lower=sensitivity_interval$CI[1],Upper=sensitivity_interval$CI[2])
+```
+
+This interval compares the two measurements in the same test people. It describes uncertainty conditional on this perturbation and model. It does not quantify every plausible future measurement process. Sensitivity analysis becomes misleading if many perturbations are tried and only the most favorable is reported.
+
+# 4. Missing score variants need a specific policy
+
+Absent variants change the implemented score. Missing a highly weighted variant can matter more than missing many tiny terms, but weight magnitude alone does not determine lost information: allele frequency and correlation also matter. Preserve a variant-level coverage report.
+
+Possible analyses include comparing complete and restricted coverage in development data, documenting mean-imputation assumptions, and assessing measurement quality by batch. Do not use the final test to select the most favorable exclusion policy. If no acceptable score reproduction is possible, report the limitation rather than silently calling a modified score the original.
+
+# 5. Group comparisons require precision and context
+
+Report sample sizes, events, predictor distributions, calibration and discrimination in each relevant group. An imprecise estimate is not evidence of equivalence. One subgroup having P<0.05 and another P>0.05 does not prove their effects differ; a direct comparison or interaction model is needed under appropriate assumptions.
+
+If investigating interactions, define them beforehand, control multiplicity as appropriate, and report uncertainty. Age groups, ancestry groups and recruitment sites answer different questions and should not be treated as interchangeable labels. Small group estimates may be too unstable to support conclusions.
+
+**Published example:** Martin and colleagues examined how unequal representation in genetic studies can translate into unequal PRS performance and potential health disparities. The implication for this course is to evaluate the intended population rather than assume a score is universally calibrated. [1]
+
+# 6. A completed sensitivity plan for the teaching project
+
+| Question | Prespecified analysis | Interpretation limit |
+|---|---|---|
+| Does extra predictor noise matter? | Add N(0,1) noise to reference-standardized test PRS; paired metric comparison | Artificial stress test only |
+| Does the reference scale matter? | Verify development mean/SD are applied unchanged | Arithmetic consistency, not clinical calibration |
+| Does outcome definition change? | No alternative outcome invented in this exercise | Real alternatives require actual ascertainment data |
+| Is ancestry portability established? | Not assessed in a one-population simulation | Requires suitable real evaluation data |
+| Are relatives accounted for? | Baseline simulation explicitly unrelated | Real clusters require a different design |
+
+# Practice and handover
+
+**Can group normalization equalize accuracy?** It can change score distributions, but equal accuracy must be evaluated.
+
+**Does different statistical significance establish different effects?** No; compare effects directly with uncertainty.
+
+**What if a subgroup has very few events?** Report its limited precision and avoid strong conclusions.
+
+The output is a sensitivity table with assumptions and limitations. Chapter 20 gathers the project's results into a reproducible report, keeping unassessed questions visible.
+
+# References
+
+1. Martin AR, Kanai M, Kamatani Y, Okada Y, Neale BM, Daly MJ. Clinical use of current polygenic risk scores may exacerbate health disparities. *Nature Genetics*. 2019;51:584–591. https://doi.org/10.1038/s41588-019-0379-x
+2. Wand H, Lambert SA, Tamburro C, et al. Improving reporting standards for polygenic scores in risk prediction studies. *Nature*. 2021;591:211–219. https://doi.org/10.1038/s41586-021-03243-6
