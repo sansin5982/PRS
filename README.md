@@ -55,3 +55,5 @@ The final model uses age, SBP and a fixed synthetic PRS. It is not a validated c
 ## Navigation and audit
 
 See COURSE_MANIFEST.tsv for prerequisites, inputs, outputs and verification status. Individual chapter sources are in `chapters/`.
+
+https://sansin5982.github.io/PRS/
